@@ -176,6 +176,7 @@
     var score = 0;
     var lives = 3;
     var gun_pad = 5;
+    var gameover = false;
 
     var MAX_MOVE = 5;
     var MAX_RADAR_MOVE = Math.PI*2;
@@ -301,6 +302,16 @@
           ctx.fillText("Player 1:"+Math.round(player.energy), 8, 20);
         } else if (num == 2) {
           ctx.fillText("Player 2:"+Math.round(player.energy), canvas.width-110, 20);
+        }
+    }
+    function drawGameover(p1, p2) {
+        ctx.font = "28px Arial";
+        if (p1.energy > p2.energy) {
+          ctx.fillStyle = p1.color;
+          ctx.fillText("Player 1 Wins!", canvas.width/2 - 90, canvas.height/2 - 20);
+        } else {
+          ctx.fillStyle = p2.color;
+          ctx.fillText("Player 2 Wins!", canvas.width/2 - 90, canvas.height/2 - 20);
         }
     }
     // A function to create a command from keyboard state:
@@ -435,15 +446,8 @@
       p2.missile_energy_available += dt * 0.01;
       advance_missiles(dt, p1, p2);
       advance_missiles(dt, p2, p1);
-      // TODO(alex): Check fairly, ties(?)
-      if (p1.energy <= 0) {
-        document.location.reload();
-        alert("Player 2 wins!");
-        document.location.reload();
-      } else if (p2.energy <= 0) {
-        document.location.reload();
-        alert("Player 1 wins!")
-        document.location.reload();
+      if (p1.energy <= 0 || p2.energy <= 0) {
+        gameover = true;
       }
       // Handle player moving: TODO(alex): Calculate fairly/simultaneous? Dt too small or allow partial for collision case?
       move_player(p1, p2, cmd1.move);
@@ -460,10 +464,16 @@
     }
     /*************************** "MAIN" LOOP **************************************/
     function draw() {
-        // Advance game state based on player's cmds and dt_ms
-        advance(dt_ms, player1, create_keyboard_cmd(dt_ms, player1), player2, player2_AI.get_cmd(dt_ms, player2));
-        // Clear canvas and draw players (and missiles)
+        // Clear Canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!gameover) {
+          // Advance game state based on player's cmds and dt_ms
+          advance(dt_ms, player1, create_keyboard_cmd(dt_ms, player1), player2, player2_AI.get_cmd(dt_ms, player2));
+        } else {
+          drawGameover(player1, player2);
+        }
+        // Draw games elements:
         drawPlayer(player1);
         drawPlayer(player2);
         drawMissiles(player1);
