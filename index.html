@@ -13,8 +13,8 @@
 </main>
 &nbsp;
 <h3>&nbsp;Controls</h3>
-&nbsp;Move mouse to aim gun, click to shoot. <br />
-&nbsp;Shooting uses up energy, (see top screen), hold mouse click to shoot larger missiles.<br />
+&nbsp;Move mouse to aim gun, click to shoot. Missile strength depends on how long the click is held down. <br />
+&nbsp;Shooting uses up energy, but it also recovers energy if it hits the opponent.<br />
 &nbsp;<br />
 &nbsp;&nbsp; E<br />
 &nbsp;SDF to move.<br />
@@ -22,15 +22,30 @@
 
 
 <script>
+    var MAX_ENERGY = 300;
+    var MAX_MOVE = 5;
+    var MAX_RADAR_MOVE = Math.PI*2;
+    var MAX_GUN_MOVE = Math.PI*2;
+    var MAX_MISSLE_ENERGY_USE = 7;
+    var RADAR_WIDTH_RAD = 0.5;
+    var MISSILE_ENERGY_PER_MS = 0.01;  // How much missile energy is consumed per ms of 'fire' key press
+    var MISSILE_ENERGY_PIXEL_PER_MS =  1.0;  // How many pixels/ms a missile travels, divided by energy
+    var MISSILE_RADIUS_PER_ENERGY = 1;
+    var FIRE_ENERGY_TO_PIXELS =6.0;
+
+    var dt_ms = 20;
+    var key_vel = 0.08;  // Pixels per ms
+    var gun_vel = 0.003;  // Radian per ms
+    var ballRadius = 20;
     /*************************** GAME "CLASSES" **************************************/
     class Player {
-      constructor(x, y, color) {
+      constructor(x, y, color, angle=0) {
         this.x = x;
         this.y = y;
         this.color = color;
-        this.energy = 300.0;
-        this.gun_angle_rad = 0.0;
-        this.radar_angle_rad = 0.0;
+        this.energy = MAX_ENERGY;
+        this.gun_angle_rad = angle;
+        this.radar_angle_rad = angle;
         this.radar_data = [];
         this.missiles_array = [];
         this.missile_energy_available = 10;
@@ -103,8 +118,7 @@
     // Example of what people would write/submit
     class ExampleAI {
       constructor() {
-        this.last_known_target = [0.0, 0.0];
-        this.time_since_last_known_target_ms = 9999;
+        this.time_since_fired_ms = 0;
       }
       get_rotation(p1, p2) {
         return Math.atan2(p2[1] - p1[1], p2[0] - p1[0])
@@ -114,56 +128,24 @@
         cmd.radar_move = Math.PI*2;  // Always spin radar full circle
         if (player.radar_data.length > 0) {  // If you have a target, move gun, shoot, move towards enemy
           cmd.gun_move = this.get_rotation([player.x, player.y], player.radar_data) - player.gun_angle_rad;
-          cmd.missiles_array.push(new Missile(player.x, player.y, player.gun_angle_rad, 3));
+          this.time_since_fired_ms += dt;
+          if (this.time_since_fired_ms > 600) {
+            cmd.missiles_array.push(new Missile(player.x, player.y, player.gun_angle_rad, 5));
+            this.time_since_fired_ms = 0;
+          }
           cmd.move[0] = Math.sign(player.radar_data[0] - player.x) * 0.5;
           cmd.move[1] = Math.sign(player.radar_data[1] - player.y) * 0.5;
         }
         return cmd;
       }
     }
-    // class ExampleAI2 {
-    //   constructor() {
-    //     this.last_known_target = [0.0, 0.0];
-    //     this.time_since_last_known_target_ms = 9999;
-    //   }
-    //   get_cmd(dt, player) {
-    //     const cmd = new command();
-    //     this.time_since_last_known_target_ms += dt;
-    //     // If enemy location is stale, use radar to search:
-    //     if (this.time_since_last_known_target_ms >= 500) {
-    //       // Check if radar found anything:
-    //       if (player.radar_data.length > 0) {
-    //         this.time_since_last_known_target_ms = 0.0;  // Reset time delta to zero
-    //         this.last_known_target = player.radar_data;  // Save radar data for later
-    //         var desired_angle = player.x - this.last_known_target[0];  // TODO(alex): fill in trig
-    //         cmd.radar_move = desired_angle - player.radar_angle_rad;
-    //       } else {
-    //         cmd.radar_move = Math.PI*2;
-    //       }
-    //     // If enemy location is not stale, move gun and fire missiles:
-    //     } else if (this.time_since_last_known_target_ms < 500) {
-    //       var angle = Math.atan2(this.last_known_target[1] - player.y, this.last_known_target[0] - player.x);
-    //       cmd.gun_move = angle - player.gun_angle_rad;
-    //       cmd.missiles_array.push(new Missile(player.x, player.y, player.gun_angle_rad, 2));
-    //       cmd.move[0] = Math.sign(this.last_known_target[0] - player.x) * 1.0;  // inch towards the enemy
-    //       cmd.move[1] = Math.sign(this.last_known_target[1] - player.y) * 1.0;  // inch towards the enemy
-    //     }
-    //     return cmd;
-    //   }
-    // }
     /*************************** "GLOBALS" **************************************/
     var canvas = document.querySelector("#canvas");
-    // var canvas = document.getElementById("myCanvas");
     var ctx = canvas.getContext("2d");
-    var dt_ms = 20;
-    var key_vel = 0.08;  // Pixels per ms
-    var gun_vel = 0.003;  // Radian per ms
-    var ballRadius = 20;
     const player1 = new Player(50, canvas.height/2, 'rgba(0, 255, 40, 1)');
-    const player2 = new Player(canvas.width-50, canvas.height/2, 'rgba(0, 200, 255, 1)');
+    const player2 = new Player(canvas.width-50, canvas.height/2, 'rgba(0, 200, 255, 1)',  angle=Math.PI);
     const player2_AI = new ExampleAI();
     var fires_array = [];  // array to store fire animations
-
     var rightPressed = false;
     var leftPressed = false;
     var upPressed = false;
@@ -177,16 +159,7 @@
     var lives = 3;
     var gun_pad = 5;
     var gameover = false;
-
-    var MAX_MOVE = 5;
-    var MAX_RADAR_MOVE = Math.PI*2;
-    var MAX_GUN_MOVE = Math.PI*2;
-    var MAX_MISSLE_ENERGY_USE = 7;
-    var RADAR_WIDTH_RAD = 0.5;
-    var MISSILE_ENERGY_PER_MS = 0.01;  // How much missile energy is consumed per ms of 'fire' key press
-    var MISSILE_ENERGY_PIXEL_PER_MS =  1.0;  // How many pixels/ms a missile travels, divided by energy
-    var MISSILE_RADIUS_PER_ENERGY = 1;
-    var FIRE_ENERGY_TO_PIXELS =6.0;
+    var gamestarted = false;
 
     document.addEventListener("keydown", keyDownHandler, false);
     document.addEventListener("keyup", keyUpHandler, false);
@@ -239,9 +212,15 @@
         // Draw base
         ctx.beginPath();
         ctx.arc(player.x, player.y, ballRadius, 0, Math.PI*2);
-        // ctx.fs
         ctx.strokeStyle = player.color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.closePath();
+        // Draw energy ring
+        ctx.beginPath();
+        var percentage = player.energy < 0 ? 0 : player.energy/MAX_ENERGY;
+        ctx.arc(player.x, player.y, ballRadius, 0, Math.PI*2 * percentage);
+        ctx.lineWidth = 3;
         ctx.stroke();
         ctx.closePath();
         // Draw gun
@@ -466,8 +445,15 @@
     function draw() {
         // Clear Canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        if (!gameover) {
+        if (!gamestarted) {
+          if (mouseClicked) {
+            gamestarted = true;
+          } else {
+            ctx.font = "28px Arial";
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillText("Click to start", canvas.width/2 - 80, canvas.height/2 - 20);
+          }
+        } else if (!gameover) {
           // Advance game state based on player's cmds and dt_ms
           advance(dt_ms, player1, create_keyboard_cmd(dt_ms, player1), player2, player2_AI.get_cmd(dt_ms, player2));
         } else {
@@ -479,8 +465,8 @@
         drawMissiles(player1);
         drawMissiles(player2);
         drawFires(fires_array, dt_ms)
-        drawEnergyLabel(player1, 1);
-        drawEnergyLabel(player2, 2);
+        // drawEnergyLabel(player1, 1);
+        // drawEnergyLabel(player2, 2);
     }
     // Start the drawing at a fixed interval:
     var interval = setInterval(draw, dt_ms);
