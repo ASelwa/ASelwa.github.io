@@ -14,7 +14,7 @@
 &nbsp;
 <h3>&nbsp;Controls</h3>
 &nbsp;Move mouse to aim gun, click to shoot. Missile strength depends on how long the click is held down. <br />
-&nbsp;Shooting uses up energy, but it also recovers energy if it hits the opponent.<br />
+&nbsp;Shooting uses up energy, but it recovers energy when the opponent is hit.<br />
 &nbsp;<br />
 &nbsp;&nbsp; E<br />
 &nbsp;SDF to move.<br />
@@ -22,6 +22,11 @@
 
 
 <script>
+    // Brainstorming:
+    //  -
+
+
+
     var MAX_ENERGY = 300;
     var MAX_MOVE = 5;
     var MAX_RADAR_MOVE = Math.PI*2;
@@ -129,7 +134,8 @@
         if (player.radar_data.length > 0) {  // If you have a target, move gun, shoot, move towards enemy
           cmd.gun_move = this.get_rotation([player.x, player.y], player.radar_data) - player.gun_angle_rad;
           this.time_since_fired_ms += dt;
-          if (this.time_since_fired_ms > 600) {
+          if (this.time_since_fired_ms > 1300) {
+            cmd.gun_move += (Math.random() - 0.5) * 0.5;
             cmd.missiles_array.push(new Missile(player.x, player.y, player.gun_angle_rad, 5));
             this.time_since_fired_ms = 0;
           }
